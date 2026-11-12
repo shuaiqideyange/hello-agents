@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Git 实操学习笔记</title>
+<style>
+body{margin:0;background:#f3f5f8;color:#243042;font:16px/1.85 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+main{max-width:980px;margin:32px auto;padding:40px 52px;background:white;border-radius:16px;box-shadow:0 4px 24px #2430420d}
+h1{font-size:30px;line-height:1.45}h2{font-size:24px;margin-top:42px;border-bottom:1px solid #dfe5ed;padding-bottom:10px}h3{font-size:19px;margin-top:28px}
+a{color:#175ca4;text-underline-offset:3px}code{font:0.92em/1.65 ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere}p code,td code{background:#f1f4f8;border-radius:4px;padding:2px 5px}
+pre{background:#f6f8fa;border:1px solid #dfe5ed;border-radius:8px;padding:16px;overflow:auto;line-height:1.65}pre code{white-space:pre;overflow-wrap:normal}
+table{display:block;overflow-x:auto;border-collapse:collapse;width:100%;margin:18px 0}th,td{border:1px solid #dfe5ed;padding:10px 14px;text-align:left;vertical-align:top}th{background:#edf2f8}blockquote{border-left:4px solid #9aacc2;margin:20px 0;padding:8px 18px;background:#f6f8fb;color:#526077}
+@media(max-width:700px){main{margin:0;padding:22px 18px;border-radius:0}h1{font-size:25px}h2{font-size:21px}}
+@media print{body{background:white}main{margin:0;max-width:none;padding:0;box-shadow:none}pre,table{break-inside:avoid}h2,h3{break-after:avoid}}
+</style></head><body><main><h1>Git 实操学习笔记：从 clone 到 push、pull、diff</h1>
+<p>整理日期：2026 年 11 月 12 日。根据本次对话整理，保留实际命令、操作结果、概念问答和排错过程。</p>
+<p>示例远程仓库：<a href="https://github.com/shuaiqideyange/hello-agents">shuaiqideyange/hello-agents</a></p>
+<p>本地仓库目录：<code>/Users/sqdyg/Documents/zhaixiaoyan/agent学习/gitagent</code></p>
+<p>练习文件：<code>git-learning-notes.md</code></p>
+<blockquote>
+<p><strong>阅读说明</strong>：重要命令和知识使用 HTML 红色标记。Markdown 本身没有统一的文字颜色语法，颜色是否显示取决于阅读器；GitHub 可能过滤这些颜色样式。配套的 HTML 阅读版可在浏览器中显示红色。命令框里的命令可以复制执行，但不要将整份笔记从头批量执行。</p>
+</blockquote>
+<h2>1. 本次学习走过的路线</h2>
+<pre><code class="language-text">clone：把远程仓库及版本历史复制到本地
+   ↓
+修改文件 → status / diff：检查状态和修改
+   ↓
+add：选出下一次要提交的修改
+   ↓
+commit：保存一个本地版本
+   ↓
+push：把本地提交上传到 GitHub
+
+GitHub 网页修改并提交
+   ↓
+pull：获取远程更新，并整合到当前本地分支
+</code></pre>
+<p><span style="color:#c62828"><strong>修改文件、add、commit、push 是不同步骤。commit 不会自动上传，push 才会把本地提交上传到远程。</strong></span></p>
+<h2>2. 本地仓库、工作区和远程仓库</h2>
+<h3>2.1 gitagent 是不是本地仓库？</h3>
+<p>克隆成功后，<code>gitagent</code> 就是项目的本地 Git 仓库目录。里面通常有两部分：</p>
+<pre><code class="language-text">gitagent/
+├── .git/                    ← 版本历史、分支、远程地址等管理信息
+├── git-learning-notes.md     ← 可以直接编辑的项目文件
+└── 其他项目文件
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>概念</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>工作区</td>
+<td>你能直接查看和编辑的项目文件</td>
+</tr>
+<tr>
+<td>暂存区</td>
+<td>下一次提交准备采用的内容快照</td>
+</tr>
+<tr>
+<td>本地仓库</td>
+<td>在电脑上保存版本历史；核心数据位于隐藏目录 <code>.git</code> 中</td>
+</tr>
+<tr>
+<td>远程仓库</td>
+<td>GitHub 上保存和共享提交的仓库</td>
+</tr>
+</tbody>
+</table>
+<p><span style="color:#c62828"><strong>本地仓库不会自动与 GitHub 同步。没有网络时，也能修改文件、查看本地差异和执行 commit。</strong></span></p>
+<h3>2.2 一台电脑可以有多个本地仓库吗？</h3>
+<p>可以。通常一个项目一个独立文件夹，分别有自己的 <code>.git</code>：</p>
+<pre><code class="language-text">agent学习/
+├── gitagent/
+│   └── .git/
+├── another-project/
+│   └── .git/
+└── my-website/
+    └── .git/
+</code></pre>
+<p>克隆另一个项目时，先进入父目录，再克隆。下面的“仓库地址”和“新文件夹名”需要替换：</p>
+<pre><code class="language-bash">cd &quot;/Users/sqdyg/Documents/zhaixiaoyan/agent学习&quot;
+git clone 仓库地址 新文件夹名
+</code></pre>
+<p>不指定新文件夹名时，Git 默认使用仓库名称创建目录。</p>
+<p><span style="color:#c62828"><strong>通常你在哪个仓库目录及其子目录中执行 Git 命令，就是在操作哪个仓库。初学时建议将不同项目并列存放。</strong></span></p>
+<h2>3. main、origin、origin/main 和 HEAD</h2>
+<table>
+<thead>
+<tr>
+<th>名称</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span style="color:#c62828"><code>main</code></span></td>
+<td>本例的本地分支名；名字本身没有特殊功能</td>
+</tr>
+<tr>
+<td><span style="color:#c62828"><code>origin</code></span></td>
+<td>克隆时为远程仓库起的默认名称，关联远程地址</td>
+</tr>
+<tr>
+<td><span style="color:#c62828"><code>origin/main</code></span></td>
+<td>本地保存的远程 main 状态记录，并不是实时查询 GitHub 得到的结果</td>
+</tr>
+<tr>
+<td><span style="color:#c62828"><code>HEAD</code></span></td>
+<td>表示当前所在位置；通常指向当前分支，再由分支指向当前提交</td>
+</tr>
+</tbody>
+</table>
+<p>“默认分支是 main”表示打开 GitHub 仓库时通常先展示它；普通 clone 后通常会检出对应的本地分支。</p>
+<p><span style="color:#c62828"><strong>默认分支不等于唯一分支，也不保证比其他分支更新。工作区干净，也不等于已经与 GitHub 实时同步。</strong></span></p>
+<h2>4. clone：把项目克隆到 gitagent</h2>
+<p>本次开始时，<code>gitagent</code> 已存在且为空，电脑也已经安装 Git。旁边原有的 <code>helloagent</code> 文件夹并不是本次的 Git 仓库。</p>
+<p>进入目标目录：</p>
+<pre><code class="language-bash">cd &quot;/Users/sqdyg/Documents/zhaixiaoyan/agent学习/gitagent&quot;
+</code></pre>
+<p><span style="color:#c62828"><strong>git clone：复制远程仓库及其版本历史，并建立远程关联。</strong></span></p>
+<p>普通网络环境下使用：</p>
+<pre><code class="language-bash">git clone https://github.com/shuaiqideyange/hello-agents.git .
+</code></pre>
+<p><span style="color:#c62828"><strong>末尾的点号 <code>.</code> 表示直接克隆到当前目录。已有目录通常需要为空；不带点号，则默认再创建 hello-agents 子目录。</strong></span></p>
+<p>本次网络排查后实际采用了显式代理：</p>
+<pre><code class="language-bash">git -c http.proxy=http://127.0.0.1:12450 clone https://github.com/shuaiqideyange/hello-agents.git .
+</code></pre>
+<p>克隆成功后检查：</p>
+<pre><code class="language-bash">git status
+</code></pre>
+<p>本次成功输出：</p>
+<pre><code class="language-text">On branch main
+Your branch is up to date with 'origin/main'.
+
+nothing to commit, working tree clean
+</code></pre>
+<p>这里表示当前处于 main，与本地记录的 origin/main 一致，而且没有未提交的工作区修改。</p>
+<h2>5. 本次网络报错与代理排查</h2>
+<h3>5.1 Could not resolve host: github.com</h3>
+<p>最初克隆出现：</p>
+<pre><code class="language-text">fatal: unable to access 'https://github.com/shuaiqideyange/hello-agents.git/':
+Could not resolve host: github.com
+</code></pre>
+<p><span style="color:#c62828"><strong>这个错误表示域名解析失败：还没有成功把 github.com 转换为可连接的网络地址，并不是已经验证了账号但没有写入权限。</strong></span></p>
+<p>检查顺序：</p>
+<ol>
+<li>
+<p>浏览器尝试打开 GitHub 和百度。本次两者都能打开。</p>
+</li>
+<li>
+<p>在终端执行 DNS 查询：</p>
+<pre><code class="language-bash">nslookup github.com
+</code></pre>
+</li>
+<li>
+<p>本次查询输出：</p>
+<pre><code class="language-text">;; connection timed out; no servers could be reached
+</code></pre>
+</li>
+<li>
+<p>查看 Sakuracat 设置，确认 Mixed 代理入口为 <code>127.0.0.1:12450</code>，支持 HTTP / SOCKS5。</p>
+</li>
+<li>
+<p>用显式代理测试远程访问：</p>
+<pre><code class="language-bash">git -c http.proxy=http://127.0.0.1:12450 ls-remote https://github.com/shuaiqideyange/hello-agents.git HEAD
+</code></pre>
+</li>
+</ol>
+<p>成功返回：</p>
+<pre><code class="language-text">36f583c233ea5cee4537ef93455702b55053af18    HEAD
+</code></pre>
+<p>这表示这条命令通过指定的代理成功读取了远程 HEAD。它不证明默认连接方式正常，也不证明具有 push 权限；本例是公开仓库，读取和写入的验证要求不同。</p>
+<h3>5.2 为什么开了 TUN，终端仍然报错？</h3>
+<p>TUN 正常工作且路由、DNS 配置匹配时，通常也能接管终端程序的流量，不依赖 Git 自己配置 HTTP 代理。</p>
+<pre><code class="language-text">DNS 查询 github.com 的地址
+            ↓
+连接该地址，传输仓库数据
+</code></pre>
+<p>本次报错发生在 DNS 阶段。浏览器可能使用缓存、自己的 DNS 机制或代理路径，因此浏览器可用与终端 DNS 查询失败可以同时发生。</p>
+<p><span style="color:#c62828"><strong>不能仅凭“Git 没设置代理”断定 TUN 没有接管 Git。本次没有查明 TUN 具体哪项配置导致失败，只确认了显式代理入口可用。</strong></span></p>
+<h3>5.3 临时代理参数怎么理解？</h3>
+<table>
+<thead>
+<tr>
+<th>参数部分</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span style="color:#c62828"><code>-c http.proxy=http://127.0.0.1:12450</code></span></td>
+<td>只为这次 Git 命令指定代理，不写入永久配置</td>
+</tr>
+<tr>
+<td><code>127.0.0.1</code></td>
+<td>当前电脑的本机地址</td>
+</tr>
+<tr>
+<td><code>12450</code></td>
+<td>本次截图中的代理服务端口，换设备或设置后可能不同</td>
+</tr>
+<tr>
+<td>代理地址中的 <code>http://</code></td>
+<td>表示连接代理使用的协议，不要求与仓库的 <code>https://</code> 相同</td>
+</tr>
+</tbody>
+</table>
+<h2>6. status 和 add：检查修改、加入暂存区</h2>
+<p>在 <code>gitagent</code> 中新建并保存 <code>git-learning-notes.md</code>。最初建议写入：</p>
+<pre><code class="language-markdown"># Git 学习笔记
+
+- clone：把远程仓库克隆到本地。
+- status：查看当前分支和文件修改状态。
+</code></pre>
+<p><span style="color:#c62828"><strong>git status：查看当前分支、暂存状态及工作区变化，不展示完整的具体差异。</strong></span></p>
+<pre><code class="language-bash">git status
+</code></pre>
+<p>新文件尚未被跟踪时：</p>
+<pre><code class="language-text">Untracked files:
+    git-learning-notes.md
+
+nothing added to commit but untracked files present
+</code></pre>
+<p>文件在终端通常显示红色，属于状态提示，不是报错。不同编辑器可能有自己的配色。</p>
+<p><span style="color:#c62828"><strong>git add：将指定文件当前的内容加入暂存区，为下一次提交做准备。</strong></span></p>
+<pre><code class="language-bash">git add git-learning-notes.md
+git status
+</code></pre>
+<p>暂存成功后：</p>
+<pre><code class="language-text">Changes to be committed:
+    new file:   git-learning-notes.md
+</code></pre>
+<p><span style="color:#c62828"><strong>add 不创建提交，也不上传。它保存的是执行 add 时的内容；之后再改文件，需要再次 add，才能把新修改也纳入暂存区。</strong></span></p>
+<h2>7. 设置提交署名：局部配置与 --global</h2>
+<p>Git 每次提交会记录作者姓名和邮箱。将下列占位文字替换为你自己的信息后执行：</p>
+<pre><code class="language-bash">git config user.name &quot;你的署名&quot;
+git config user.email &quot;你的提交邮箱&quot;
+</code></pre>
+<p>邮箱建议使用 GitHub 已验证邮箱或其提供的隐私邮箱。署名会随提交记录共享。</p>
+<table>
+<thead>
+<tr>
+<th>写法</th>
+<th>作用范围</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span style="color:#c62828"><code>git config user.name &quot;名字&quot;</code></span></td>
+<td>在当前仓库中设置，通常保存于 <code>.git/config</code></td>
+</tr>
+<tr>
+<td><span style="color:#c62828"><code>git config --global user.name &quot;名字&quot;</code></span></td>
+<td>为当前电脑用户的各个仓库提供默认署名</td>
+</tr>
+</tbody>
+</table>
+<p>全局配置示例：</p>
+<pre><code class="language-bash">git config --global user.name &quot;你的署名&quot;
+git config --global user.email &quot;你的提交邮箱&quot;
+</code></pre>
+<p><span style="color:#c62828"><strong><code>--global</code> 中间没有空格。仓库单独设置的同名配置优先于全局默认值。修改署名影响之后的新提交，不会自动修改已有提交。</strong></span></p>
+<p><span style="color:#c62828"><strong>user.name 和 user.email 是提交署名，不是 GitHub 登录凭据，不会授予仓库访问权限。</strong></span></p>
+<h2>8. commit：保存一次本地提交</h2>
+<p><span style="color:#c62828"><strong>git commit：将暂存区准备好的内容保存为本地的一个版本。</strong></span></p>
+<pre><code class="language-bash">git commit -m &quot;添加 Git 学习笔记&quot;
+</code></pre>
+<p><code>-m</code> 后面是本次修改的说明。提交完成后：</p>
+<pre><code class="language-bash">git status
+</code></pre>
+<p>本次得到：</p>
+<pre><code class="language-text">On branch main
+Your branch is ahead of 'origin/main' by 1 commit.
+
+nothing to commit, working tree clean
+</code></pre>
+<p>含义：本地比记录的远程分支多一次提交；修改已保存，本地工作区干净，但这次提交尚未上传。</p>
+<p><span style="color:#c62828"><strong>“本地仓库中的提交”不只包括自己创建的 commit，也包括 clone、fetch、pull 从远程获取并保存在本地的提交。</strong></span></p>
+<h2>9. push：上传提交与 GitHub 身份验证</h2>
+<p><span style="color:#c62828"><strong>git push origin main：把本地 main 推送到 origin 对应的远程 main。</strong></span></p>
+<p>本次通过代理推送：</p>
+<pre><code class="language-bash">git -c http.proxy=http://127.0.0.1:12450 push origin main
+</code></pre>
+<h3>9.1 Username 和 Password 应该填什么？</h3>
+<pre><code class="language-text">Username for 'https://github.com':
+</code></pre>
+<p>本例填 GitHub 登录用户名 <code>shuaiqideyange</code>，不是必须与 <code>git config user.name</code> 相同的署名。</p>
+<pre><code class="language-text">Password for 'https://shuaiqideyange@github.com':
+</code></pre>
+<p><span style="color:#c62828"><strong>通过 HTTPS 用这种方式验证时，Password 处填个人访问令牌（Token），不能使用 GitHub 登录密码。输入或粘贴时终端通常不显示字符。</strong></span></p>
+<h3>9.2 创建或修改细粒度 Token</h3>
+<p>入口：<a href="https://github.com/settings/personal-access-tokens">细粒度 Token 列表</a>，或 <a href="https://github.com/settings/personal-access-tokens/new">创建页面</a>。</p>
+<p>手动导航：右上角头像 → Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token。</p>
+<p>本次学习需要的设置：</p>
+<table>
+<thead>
+<tr>
+<th>设置</th>
+<th>本例选择</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Token name</td>
+<td><code>git-learning</code></td>
+</tr>
+<tr>
+<td>Expiration</td>
+<td>较短有效期，例如 7 天</td>
+</tr>
+<tr>
+<td>Resource owner</td>
+<td><code>shuaiqideyange</code></td>
+</tr>
+<tr>
+<td>Repository access</td>
+<td><code>Only select repositories</code>，选 <code>hello-agents</code></td>
+</tr>
+<tr>
+<td><span style="color:#c62828">Contents</span></td>
+<td><span style="color:#c62828"><strong>Read and write</strong></span></td>
+</tr>
+<tr>
+<td>Metadata</td>
+<td>自动附带的必需权限，保持 Read-only</td>
+</tr>
+<tr>
+<td>Account / User permissions</td>
+<td>本次无需额外添加</td>
+</tr>
+</tbody>
+</table>
+<p><span style="color:#c62828"><strong>Metadata 标注 Required 并自动出现是正常的。选择仓库和授予 Contents 写权限，是两个都需要确认的步骤。</strong></span></p>
+<h3>9.3 本次 403 的原因与处理</h3>
+<p>本次出现：</p>
+<pre><code class="language-text">remote: Permission to shuaiqideyange/hello-agents.git denied to shuaiqideyange.
+fatal: ... The requested URL returned error: 403
+</code></pre>
+<p>403 表示请求到达服务端，但操作未获授权。本次截图明确显示 Token 没有选中仓库，也没有仓库权限；修改为上表设置并点击 Update 后再试。</p>
+<p>如果要排除凭据缓存的影响，本次重试使用：</p>
+<pre><code class="language-bash">git -c http.proxy=http://127.0.0.1:12450 -c credential.helper= push origin main
+</code></pre>
+<p><span style="color:#c62828"><strong><code>-c credential.helper=</code> 临时跳过凭据助手，让此次命令重新询问凭据；它不会删除之前保存的凭据，也不会永久改变设置。</strong></span></p>
+<h3>9.4 原来的 Token 找不到怎么办？</h3>
+<p>完整 Token 只在生成时显示一次，不能在详情页重新查看。如果没有自行保存，可在详情页点击 Regenerate token，按提示重新生成。</p>
+<p><span style="color:#c62828"><strong>重新生成后旧 Token 失效，应使用新 Token。Token 不要发到聊天、写进项目文件或提交到 Git 仓库；可保存在密码管理器中。</strong></span></p>
+<h3>9.5 本次成功推送的证据</h3>
+<pre><code class="language-text">To https://github.com/shuaiqideyange/hello-agents.git
+   36f583c..901e614  main -&gt; main
+</code></pre>
+<p>这表示远程 main 从原来的 <code>36f583c</code> 更新到了 <code>901e614</code>。刷新 GitHub 仓库页面，可以看到学习笔记。</p>
+<h2>10. pull：从 GitHub 获取并整合更新</h2>
+<p>为练习 pull，本次先在 GitHub 网页打开学习笔记，点击铅笔图标修改，新增：</p>
+<pre><code class="language-markdown">- pull：获取远程更新，并整合到当前分支。
+</code></pre>
+<p>然后点击 Commit changes，将修改直接提交到远程 main。网页提交不会立即更新电脑里的文件。</p>
+<p><span style="color:#c62828"><strong>git pull 会先获取远程提交，再按所选策略整合到当前本地分支；它不是简单地用远程文件覆盖本地文件。</strong></span></p>
+<pre><code class="language-bash">git -c http.proxy=http://127.0.0.1:12450 pull --ff-only origin main
+</code></pre>
+<p>本次输出中的关键部分：</p>
+<pre><code class="language-text">901e614..55339b0  main -&gt; origin/main
+Updating 901e614..55339b0
+Fast-forward
+ git-learning-notes.md | 1 +
+ 1 file changed, 1 insertion(+)
+</code></pre>
+<p>表示已获取远程新提交，并让本地分支快进到 <code>55339b0</code>；一个文件新增一行。</p>
+<h3>10.1 --ff-only 和不加它有什么区别？</h3>
+<table>
+<thead>
+<tr>
+<th>命令</th>
+<th>本地历史是远程历史的前段时</th>
+<th>本地与远程分叉时</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span style="color:#c62828"><code>git pull --ff-only origin main</code></span></td>
+<td>可以直接快进跟上远程</td>
+<td>停止整合，不自动处理分叉</td>
+</tr>
+<tr>
+<td><span style="color:#c62828"><code>git pull origin main</code></span></td>
+<td>通常同样快进，具体还受配置影响</td>
+<td>根据配置合并、变基，或要求明确选择策略</td>
+</tr>
+</tbody>
+</table>
+<p><span style="color:#c62828"><strong>省略 --ff-only 不等于一定自动合并。显式使用 --ff-only 可以确保出现分叉时先停下来检查。</strong></span></p>
+<h3>10.2 网页和本地各自 commit，会发生什么？</h3>
+<p>如果本地和远程从共同版本 A 出发，在网页提交 C 后，本地没有先拉取，又独立提交 B：</p>
+<pre><code class="language-text">A ── B  ← 本地 main
+ \
+  └─ C  ← GitHub 上的 main
+</code></pre>
+<p>这叫历史分叉。它不表示 Git 自动创建了一个新名字的分支。</p>
+<p>执行 <code>pull --ff-only</code> 仍可能成功获取远程对象、更新远程跟踪记录，但会拒绝整合，本地 main 仍停在 B。</p>
+<table>
+<thead>
+<tr>
+<th>概念</th>
+<th>判断条件</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span style="color:#c62828"><strong>分叉</strong></span></td>
+<td>两边各自有对方没有的新提交，即使改的是不同文件也可能分叉</td>
+</tr>
+<tr>
+<td><span style="color:#c62828"><strong>冲突</strong></span></td>
+<td>整合时 Git 无法自动决定如何组合内容，例如双方对同一行做了不兼容的修改</td>
+</tr>
+</tbody>
+</table>
+<p><span style="color:#c62828"><strong>分叉不等于冲突。不同文件的修改通常能自动整合；出现分叉后，需要明确采用合并（merge）或变基（rebase）等处理方式。</strong></span></p>
+<p>合并通常用一次新提交汇合两条历史；变基则将本地提交的修改重放到新的基础上，生成新的提交编号。这是后续进阶主题，本次没有实际执行分叉整合。</p>
+<h2>11. diff 实操：看清修改发生在哪里</h2>
+<h3>11.1 三个对比位置</h3>
+<pre><code class="language-text">工作区  ←── git diff ──→  暂存区  ←── git diff --staged ──→  HEAD
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>命令</th>
+<th>比较对象</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span style="color:#c62828"><code>git status</code></span></td>
+<td>汇总当前状态</td>
+<td>哪些文件新建、修改、暂存了</td>
+</tr>
+<tr>
+<td><span style="color:#c62828"><code>git diff</code></span></td>
+<td>工作区 vs 暂存区</td>
+<td>查看已跟踪文件尚未暂存的修改</td>
+</tr>
+<tr>
+<td><span style="color:#c62828"><code>git diff --staged</code></span></td>
+<td>暂存区 vs HEAD</td>
+<td>检查准备纳入下次提交的修改</td>
+</tr>
+<tr>
+<td><span style="color:#c62828"><code>git show</code></span></td>
+<td>默认展示 HEAD 提交</td>
+<td>查看最新提交的说明及补丁；合并提交等特殊情况展示形式会不同</td>
+</tr>
+</tbody>
+</table>
+<p><span style="color:#c62828"><strong>git diff 没有输出，不一定表示没有修改：内容可能已经暂存；未跟踪的新文件通常也不会被普通 git diff 展示。</strong></span></p>
+<h3>11.2 本次操作顺序</h3>
+<p>先进入仓库并执行 <code>git status</code>。起始状态干净后，在已有的学习笔记末尾增加内容并保存，先不要 add。</p>
+<p>对话中建议增加一条 diff 笔记；你实际增加的是 <code>哈哈哈哈哈</code>。执行：</p>
+<pre><code class="language-bash">git diff
+</code></pre>
+<p>你给出的差异为：</p>
+<pre><code class="language-diff">diff --git a/git-learning-notes.md b/git-learning-notes.md
+index 5f17be5..06f9c0a 100644
+--- a/git-learning-notes.md
++++ b/git-learning-notes.md
+@@ -1 +1,2 @@
+ - pull：获取远程更新，并整合到当前分支。
++哈哈哈哈哈
+\ No newline at end of file
+</code></pre>
+<p>逐项解读：</p>
+<table>
+<thead>
+<tr>
+<th>输出</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>a/…</code> 与 <code>b/…</code></td>
+<td>对比两侧的标签；这里是同一个文件的修改前后，不是两个真实文件夹</td>
+</tr>
+<tr>
+<td><code>index 5f17be5..06f9c0a</code></td>
+<td>两侧文件内容的标识，不是两次提交的编号</td>
+</tr>
+<tr>
+<td><code>100644</code></td>
+<td>普通非可执行文件的文件模式</td>
+</tr>
+<tr>
+<td><code>--- a/…</code> 与 <code>+++ b/…</code></td>
+<td>旧侧和新侧的文件标题，不表示正文删除、新增了三个符号</td>
+</tr>
+<tr>
+<td><code>@@ -1 +1,2 @@</code></td>
+<td>差异片段在旧侧从第 1 行开始，占 1 行；新侧从第 1 行开始，占 2 行</td>
+</tr>
+<tr>
+<td><span style="color:#c62828"><code>+哈哈哈哈哈</code></span></td>
+<td><span style="color:#c62828">正文行首的加号表示新增一行</span></td>
+</tr>
+<tr>
+<td>正文最左侧 <code>-</code></td>
+<td>删除的行；若改写一行，通常展示为删除旧行、增加新行</td>
+</tr>
+<tr>
+<td>正文最左侧空格</td>
+<td>未改动的上下文行</td>
+</tr>
+<tr>
+<td><code>\ No newline at end of file</code></td>
+<td>文件末尾没有换行符，是提示，不是报错</td>
+</tr>
+</tbody>
+</table>
+<p>原来的笔记内容以 <code>- pull</code> 开头。差异中的这一行实际最左边还有一个空格，所以是未修改的上下文；不能把笔记本身的短横线误读成删除标记。</p>
+<p>如果 diff 进入翻页界面，按 <code>q</code> 退出。<code>diff</code> 本身只读，不会修改、暂存或上传文件。</p>
+<p>接着执行：</p>
+<pre><code class="language-bash">git add git-learning-notes.md
+git diff
+git diff --staged
+</code></pre>
+<p>如果没有额外修改，预期是：普通 <code>git diff</code> 没有输出，而 <code>git diff --staged</code> 仍能显示 <code>+哈哈哈哈哈</code>。</p>
+<h3>11.3 提交后如何查看？</h3>
+<p>对话最后建议了下面的后续练习，但尚未收到你确认执行成功的结果：</p>
+<pre><code class="language-bash">git commit -m &quot;练习使用 git diff 查看修改&quot;
+git diff
+git diff --staged
+git status
+git show
+</code></pre>
+<p>如果把上述修改完整暂存并提交后没有再改文件，两条 diff 都应没有输出，工作区干净；<code>git show</code> 则可以查看刚创建的提交和新增内容。</p>
+<p><span style="color:#c62828"><strong>此处 HEAD 是当前所在的本地提交，不要求它已经 push。pull 获得的提交也可以成为 HEAD。</strong></span></p>
+<h2>12. 日常命令速查与作用对比</h2>
+<p>下表中的简单命令不包含本次所需的代理参数。执行联网命令时，按后面的示例补上代理。</p>
+<table>
+<thead>
+<tr>
+<th>命令</th>
+<th>作用</th>
+<th>是否需要访问远程</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span style="color:#c62828"><code>git clone 仓库地址 目录</code></span></td>
+<td>建立本地副本，获取历史并设置远程关联</td>
+<td>本例需要</td>
+</tr>
+<tr>
+<td><span style="color:#c62828"><code>git status</code></span></td>
+<td>检查状态</td>
+<td>否</td>
+</tr>
+<tr>
+<td><span style="color:#c62828"><code>git diff</code></span></td>
+<td>检查未暂存差异</td>
+<td>否</td>
+</tr>
+<tr>
+<td><span style="color:#c62828"><code>git add 文件名</code></span></td>
+<td>把指定文件当前内容放入暂存区</td>
+<td>否</td>
+</tr>
+<tr>
+<td><span style="color:#c62828"><code>git diff --staged</code></span></td>
+<td>检查暂存区相对 HEAD 的差异</td>
+<td>否</td>
+</tr>
+<tr>
+<td><span style="color:#c62828"><code>git commit -m &quot;说明&quot;</code></span></td>
+<td>创建本地提交</td>
+<td>否</td>
+</tr>
+<tr>
+<td><span style="color:#c62828"><code>git show</code></span></td>
+<td>查看当前提交</td>
+<td>否</td>
+</tr>
+<tr>
+<td><span style="color:#c62828"><code>git push origin main</code></span></td>
+<td>上传本地 main 的提交</td>
+<td>是</td>
+</tr>
+<tr>
+<td><span style="color:#c62828"><code>git pull --ff-only origin main</code></span></td>
+<td>获取远程更新，只允许快进整合</td>
+<td>是</td>
+</tr>
+<tr>
+<td><span style="color:#c62828"><code>git ls-remote 仓库地址 HEAD</code></span></td>
+<td>查询远程 HEAD，不克隆工作区</td>
+<td>是</td>
+</tr>
+</tbody>
+</table>
+<p>一次常见的修改和上传流程：</p>
+<pre><code class="language-bash">cd &quot;/Users/sqdyg/Documents/zhaixiaoyan/agent学习/gitagent&quot;
+git status
+</code></pre>
+<p>在编辑器修改并保存文件后：</p>
+<pre><code class="language-bash">git diff
+git add git-learning-notes.md
+git diff --staged
+git commit -m &quot;说明这次修改&quot;
+git -c http.proxy=http://127.0.0.1:12450 push origin main
+</code></pre>
+<p>需要获取远程更新时：</p>
+<pre><code class="language-bash">git -c http.proxy=http://127.0.0.1:12450 pull --ff-only origin main
+</code></pre>
+<p>只有需要重新输入凭据、排除缓存影响时，才使用此前的 <code>-c credential.helper=</code> 版本。它不是日常每次都必须添加的参数。</p>
+<h2>13. 本次练习已验证到哪里</h2>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>对话中的结果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>clone</td>
+<td>成功，项目位于 gitagent</td>
+</tr>
+<tr>
+<td>add</td>
+<td>成功，学习笔记进入暂存区</td>
+</tr>
+<tr>
+<td>首次 commit</td>
+<td>成功，状态提示领先远程 1 次提交</td>
+</tr>
+<tr>
+<td>push</td>
+<td>成功，远程从 36f583c 更新为 901e614</td>
+</tr>
+<tr>
+<td>网页修改后 pull</td>
+<td>成功，本地快进到 55339b0，新增一行</td>
+</tr>
+<tr>
+<td>diff 查看新增内容</td>
+<td>成功，看到新增的“哈哈哈哈哈”</td>
+</tr>
+<tr>
+<td>暂存后查看差异</td>
+<td>已给出操作指导，并收到相同差异输出</td>
+</tr>
+<tr>
+<td>diff 练习后的再次 commit / push</td>
+<td>尚无成功输出确认，不假定已经完成</td>
+</tr>
+</tbody>
+</table>
+<h2>14. 官方资料</h2>
+<ul>
+<li><a href="https://git-scm.com/docs/git-config">Git：git-config（代理、配置项）</a></li>
+<li><a href="https://git-scm.com/docs/gitcredentials">Git：gitcredentials（凭据助手）</a></li>
+<li><a href="https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens">GitHub：管理个人访问令牌</a></li>
+<li><a href="https://github.com/MetaCubeX/Meta-Docs/blob/main/docs/config/inbound/tun.en.md">Mihomo：TUN 配置说明</a>（用于理解 TUN / DNS 机制，不代表已确认 Sakuracat 的具体故障原因）</li>
+</ul>
+</main></body></html>
